@@ -1,0 +1,128 @@
+exports.createProperty = async (req, res) => {
+  try {
+    const { name, description, category, amenities } = req.body;
+
+   
+
+  //     if (image) {
+   
+  //  let uploadResult = await cloudinary.uploader.upload(image.path, {
+  //       folder: "propertyFinder",
+  //     });
+
+  //     image = uploadResult.secure_url;
+    
+  //   } else {
+  //     return res.status(400).json({
+  //       message: "Property image is required",
+  //     });
+  //   }
+   let imagesUrl = [];
+   if(!req.files) {
+    return res.status(400).json({
+      message: "Property image is required",
+    });
+   }
+
+    // if (!req.files) {
+    //   return res.status(400).json({
+    //     message: "Property image is required",
+    //   });
+    // }
+
+        // if (req.files.length < 2) {
+        //   return res.status(400).json({
+        //     message: "Minimum of 2 images required",
+        //   });
+        // }
+        // if (req.files.length <= 2) {
+        //   return res.status(400).json({
+        //     message: "Minimum of 2 images required",
+        //   });
+        // }
+   const uploadImg =  await Promise.all(req.files.map(async(file) => {
+    try {
+            const result = await cloudinary.uploader.upload(file.path, {
+              folder: "propertyFinder",
+            });
+            return result.secure_url;
+
+            } catch (uploadError) {
+            console.error("Cloudinary upload error:", uploadError);
+            throw new Error("Failed to upload image to Cloudinary");
+          }
+      }
+   ))
+      
+    // if (images) {
+    //   let uploadResult = await cloudinary.uploader.upload(file.path, {
+    //     folder: "propertyFinder",
+    //   });
+
+         imagesUrl = uploadImg;
+    // } else {
+    //   // return res.status(400).json({
+    //   //   message: "Property image is required",
+    //   // });
+    // }
+    const amenityArray =
+      typeof amenities === "string"
+        ? amenities.split(",").map((prop) => prop.trim())
+        : amenities;
+
+    // Build `rates` manually from the flat structure in req.body
+    let rateData = {};
+    if (req.body["rates.monthly"]) rateData.monthly = req.body["rates.monthly"];
+    if (req.body["rates.weekly"]) rateData.weekly = req.body["rates.weekly"];
+    if (req.body["rates.nightly"]) rateData.nightly = req.body["rates.nightly"];
+    if (req.body["rates.yearly"]) rateData.nightly = req.body["rates.yearly"];
+
+    let locationData = {
+      street: req.body["location.street"],
+      city: req.body["location.city"],
+      state: req.body["location.state"],
+    };
+
+
+  
+
+console.log(imagesUrl);
+    // if (req.files && req.files.length > 0) {
+    //   let uploadResult = await Promise.all(
+    //     req.files.map((file) => {
+    //   return cloudinary.v2.uploader.upload(file.path, {
+    //         asset_folder: "propertyFinder",
+    //       });
+    //     })
+    //   );
+    //   console.log(uploadResult)
+    //   images = uploadResult.map((result) => result.secure_url );
+    //   console.log("img", images);
+    // } else {
+    //   return res.status(400).json({
+    //     message: "Property image is required",
+    //   });
+    // }
+
+    let property = await Property.create({
+      images:imagesUrl,
+      category,
+      name,
+      description,
+      owner: req.user.id,
+      amenities: amenityArray,
+      rates: rateData,
+      location: locationData,
+    });
+    console.log(property);
+    res.status(201).json({
+      property,
+      success: true,
+      message: "Product created successfully",
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    });
+  }
+};

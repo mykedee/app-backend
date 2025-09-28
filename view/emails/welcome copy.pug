@@ -1,0 +1,20 @@
+extends baseEmail 
+
+block content
+  p Hi #{username},
+    p Welcome to BSOMAgro, we're glad to have you 🎉🙏
+    p To complete you registration, please use the following code for verification 
+    p your email address This is your email verification 9762. It expires in 15 minutes
+
+  table.btn.btn-primary(role='presentation', border='0', cellpadding='0', cellspacing='0')
+    tbody
+    tr
+      td(align='left')
+        table(role='presentation', border='0', cellpadding='0', cellspacing='0')
+          tbody
+            tr
+              td
+                a(href=`${url}`, target="_blank") CODE : #{code}
+    p The code expires in 15 minutes
+    hr                
+    p Copyright &copy; #{copyRightDate} BSOMAgro, All rights reserved 

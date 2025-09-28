@@ -1,0 +1,262 @@
+const Property =  require('../models/properties')
+const User = require("../models/users");
+const fs = require("fs");
+const path = require("path");
+const cloudinary = require('../middleware/cloudinary')
+
+exports.getProperties = async (req, res) => {
+  try {
+      const pageSize = process.env.pageSize;
+      const page = Number(req.query.page) || 1;
+      const keyword = req.query.keyword
+        ? { name: { $regex: req.query.keyword, $options: "i" } }
+        : {};
+      const count = await Property.countDocuments({ ...keyword });
+      const properties = await Property.find({ ...keyword })
+        .populate("category", "type _id ")
+        .populate("owner", "firstname lastname")
+        .limit(pageSize)
+        .skip(pageSize * (page - 1));
+
+    res.status(200).json({
+      success: true,
+      count: properties.length,
+      properties,
+      pages: Math.ceil(count / pageSize),
+      count,
+      pageSize,
+      keyword,
+      page,
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: error.message,
+    });
+  }
+};
+
+exports.getProperty = async (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const property = await Property.findOne({slug});
+    res.status(200).json({
+      success: true,
+      property,
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: error.message,
+    });
+  }
+};
+
+
+exports.getSimilarProperties = async (req, res) => {
+try {
+  const slug = req.params.slug;
+  const property = await Property.findOne({slug}).populate(
+    "category",
+    "type _id"
+  );
+
+  const categoryName = property.category._id;
+  const related = await Property.find({
+    _id: { $ne: property },
+    category: categoryName,
+  })
+    .limit(4)
+    .populate("category", "type _id")
+    .exec();
+  res.status(200).json({
+    success: true,
+    related,
+  });
+} catch (error) {
+ res.status(400).json({
+message: error.message
+ })   
+}
+}
+
+
+// exports.getToLetSimilarProperties = async (req, res) => {
+//   try {
+//     const slug = req.params.slug;
+//     const property = await Category.findOne({ slug })
+//       .populate("category", "type _id");
+
+//     const categoryName = property.category._id;
+//     const related = await Property.find({
+//       _id: { $ne: property },
+//       category: categoryName,
+//     })
+//       .limit(4)
+//       .populate("category", "type _id")
+//       .exec();
+//     res.status(200).json({
+//       related,
+//     });
+//   } catch (error) {
+//     res.status(400).json({
+//       message: error.message,
+//     });
+//   }
+// };
+
+
+exports.createProperty = async (req, res) => {
+  try {
+    const { name, description, category, amenities } = req.body;
+    // console.log("Received Rates:", rates);
+    // console.log("Request Body:", req.body);
+    // console.log("Request Files:", location);
+    const amenityArray =
+      typeof amenities === "string"
+        ? amenities.split(",").map((prop) => prop.trim())
+        : amenities;
+
+    // Build `rates` manually from the flat structure in req.body
+    let rateData = {};
+    if (req.body["rates.monthly"]) rateData.monthly = req.body["rates.monthly"];
+    if (req.body["rates.weekly"]) rateData.weekly = req.body["rates.weekly"];
+    if (req.body["rates.nightly"]) rateData.nightly = req.body["rates.nightly"];
+    if (req.body["rates.yearly"]) rateData.nightly = req.body["rates.yearly"];
+
+    let locationData = {
+      street: req.body["location.street"],
+      city: req.body["location.city"],
+      state: req.body["location.state"],
+    };
+
+    let images = [];
+    if (req.files.length > 0) {
+      images = req.files.map((file) => {
+        return { img: `/${file.path}` };
+      });
+    } else {
+      return res.status(400).json({
+        message: "Property image is required",
+      });
+    }
+
+    // if (!name) {
+    // if (!name || !rates || !description ) {
+    //   return res.status(400).json({
+    //     message: "All fields is required",
+    //   });
+    // }
+
+    // const imgUrls = [];
+
+    // for (const imageFile of images) {
+    //   const imageBuffer = await imageFile.arrayBuffer();
+    //   const imageArray = Array.from(new Uint8Array(imageBuffer));
+    //   const imageData = Buffer.from(imageArray);
+
+    //   //convert tobase 64
+    //   const imageBase64 = imageData.toString("base64");
+
+    //   //make request to cloudinary
+    //   const result = await cloudinary.uploader.upload(
+    //     `data:image/png;base64,${imageBase64}`,
+    //     { asset_folder: "propertyFinder" }
+    //   );
+    //   console.log("result here",result);
+    //   imgUrls.push(result.secure_url);
+    // }
+
+    // let images = [];
+    // if (req.files && req.files.length > 0) {
+    //   // Map over files and upload each to Cloudinary
+    //   const uploadResult = await Promise.all(
+    //     req.files.map((file) => {
+    //       return cloudinary.uploader.upload(file.path, {
+    //         folder: "propertyFinder",
+    //       });
+    //     })
+    //   );
+
+    //   // Extract secure URLs
+    //   images = uploadResult.map((result) => result.secure_url);
+    //   console.log("Extracted image URLs:", images);
+    // } else {
+    //   return res.status(400).json({
+    //     message: "Property image is required",
+    //   });
+    // }
+    // if (req.files && req.files.length > 0) {
+    //   let uploadResult = await Promise.all(
+    //     req.files.map((file) => {
+    //   return cloudinary.uploader.upload(file.path, {
+    //         asset_folder: "propertyFinder",
+    //       });
+    //     })
+    //   );
+    //   images = uploadResult.map((result) => result.secure_url );
+    //   console.log("img", images);
+    // } else {
+    //   return res.status(400).json({
+    //     message: "Property image is required",
+    //   });
+    // }
+
+    let property = await Property.create({
+      images,
+      category,
+      name,
+      description,
+      owner: req.user.id,
+      amenities: amenityArray,
+      rates: rateData,
+      location: locationData,
+    });
+    console.log(property);
+    res.status(201).json({
+      property,
+      success: true,
+      message: "Product created successfully",
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    });
+  }
+};
+
+
+exports.deleteProperty = async (req, res, next) => {
+  let property = await Property.findById(req.params.id);
+  if(!property) {
+        return res
+          .status(401)
+          .json({ message: "Property not found" }); 
+
+  }
+  // let dy = path.resolve("./uploads");
+  // if (property.images && property.images.length > 0) {
+  //   const basePath = dy;
+  //   for (const omg of property.images) {
+  //     const imagePath = (basePath, omg.img.replace("/./", "./"));
+  //     if (fs.existsSync(imagePath)) {
+  //       try {
+  //         fs.unlinkSync(imagePath);
+  //       } catch (error) {
+  //         return res.status(500).json({
+  //           error: error.message,
+  //         });
+  //       }
+  //     } else {
+  //       return res.status(404).json({message: "Image file not found"});
+  //     }
+  //   }
+  // }
+
+  if (property.owner.toString() !== req.user && req.user.role !== "admin") {
+    return res.status(401).json({message: "User is not authorized to delete post"}) 
+  }
+  property = await Property.findByIdAndDelete(req.params.id);
+  res.status(200).json({
+    property,
+    message: " Product deleted successfully",
+  });
+}
