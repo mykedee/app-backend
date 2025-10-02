@@ -2,6 +2,8 @@ const User = require("../models/users");
 const crypto = require("crypto");
 const Email = require("../utils/sendEmail");
 const ErrorResponse = require("../utils/errorResponse");
+const { base } = require("../models/wallet");
+const Wallet = require("../models/wallet");
 
 
 // login
@@ -55,6 +57,12 @@ console.log("reg Token here", regToken);
       regTokenExpire
     });
 
+const walletID = crypto.randomBytes(12).toString("hex");
+const wallet = await wallet.create({
+owner:user._id,
+walletID,
+balance: 0
+});
 
     await new Email({
       email:user.email,

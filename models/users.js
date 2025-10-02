@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     agree_terms: { type: String, default: true },
     phone_number: { type: Number, required: true },
+    walletID: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Wallet",
+        required: true,
+    },
     role: {
       type: String,
       default: "user",
