@@ -2,9 +2,7 @@ const User = require("../models/users");
 const crypto = require("crypto");
 const Email = require("../utils/sendEmail");
 const ErrorResponse = require("../utils/errorResponse");
-const { base } = require("../models/wallet");
 const Wallet = require("../models/wallet");
-
 
 // login
 // forgotpassword
@@ -15,37 +13,33 @@ const Wallet = require("../models/wallet");
 // verifyuser
 // resendverificationcode
 
-const copyRightDate = new Date().getFullYear()
+const copyRightDate = new Date().getFullYear();
 
 exports.signup = async (req, res, next) => {
   try {
-    const {
-      firstname,
-      lastname,
-      email,
-      password,
-      phone_number,
-    } = req.body;
+    const { firstname, lastname, email, password, phone_number } = req.body;
     if (!firstname || !lastname || !email || !password) {
-      return res.status(400).json({message: "All fields are required!"});
+      return res.status(400).json({ message: "All fields are required!" });
     }
     let userExist = await User.findOne({ email });
     if (userExist) {
-      return next(
-        new ErrorResponse('Email is already taken', 400)
-      );    }
-   const genToken = crypto.randomBytes(20).toString("hex");
-   let regToken = crypto.createHash('sha256').update(genToken).digest('hex');
+      return next(new ErrorResponse("Email is already taken", 400));
+    }
+    const genToken = crypto.randomBytes(20).toString("hex");
+    let regToken = crypto.createHash("sha256").update(genToken).digest("hex");
 
-console.log("gen Token here", genToken);
-console.log("reg Token here", regToken);
+    console.log("gen Token here", genToken);
+    console.log("reg Token here", regToken);
 
-   const regTokenExpire = Date.now() + 15 * 60 * 1000;
+    const regTokenExpire = Date.now() + 15 * 60 * 1000;
 
-    const Url = `${req.protocol}://${req.get(
-      "host"
-    )}/verify/${genToken}`;
+    const Url = `${req.protocol}://${req.get("host")}/verify/${genToken}`;
 
+    const walletID = crypto.randomBytes(12).toString("hex");
+    const wallet = await Wallet.create({
+      walletID,
+      balance: 0,
+    });
 
     const user = await User.create({
       firstname,
@@ -54,37 +48,32 @@ console.log("reg Token here", regToken);
       phone_number,
       password,
       regToken,
-      regTokenExpire
+      regTokenExpire,
+      walletID: wallet._id,
     });
 
-const walletID = crypto.randomBytes(12).toString("hex");
-const wallet = await wallet.create({
-owner:user._id,
-walletID,
-balance: 0
-});
+    wallet.owner = user._id;
+    await wallet.save();
 
     await new Email({
-      email:user.email,
+      email: user.email,
       Url,
-      firstname
+      firstname,
     }).sendWelcomeMessage();
 
- sendTokenResponse(user, 200, res);
-
+    sendTokenResponse(user, 200, res);
   } catch (err) {
-  next(err)
+    next(err);
   }
 };
-
 
 exports.signin = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({
-        success:false,
-        message:"All fields are required!"
+        success: false,
+        message: "All fields are required!",
       });
     }
     const user = await User.findOne({ email }).select("+password");
@@ -103,7 +92,7 @@ exports.signin = async (req, res) => {
   }
 };
 
-exports.verifyEmail = async(req, res, next) => {
+exports.verifyEmail = async (req, res, next) => {
   // const registerToken = crypto
   //   .createHash("sha256")
   //   .update(req.params.regToken)
@@ -118,7 +107,7 @@ exports.verifyEmail = async(req, res, next) => {
     console.log(Token);
 
     let user = await User.findOne({
-      regToken:Token,
+      regToken: Token,
       regTokenExpire: { $gt: Date.now() },
     });
 
@@ -135,7 +124,7 @@ exports.verifyEmail = async(req, res, next) => {
   } catch (error) {
     res.json({ error: error.message });
   }
-}
+};
 
 // exports.verifyEmail = async (req, res, next) => {
 //   //get hash token
@@ -157,8 +146,6 @@ exports.verifyEmail = async(req, res, next) => {
 //   // await user.save();
 //   // sendTokenResponse(user, 200, res);
 // };
-
-
 
 // exports.getUsers = async (req, res) => {
 //   try {
@@ -187,7 +174,6 @@ exports.verifyEmail = async(req, res, next) => {
 //     });
 //   }
 // };
-
 
 // exports.verifyEmail = async (req, res, next) => {
 //   let { email } = req.body;
@@ -252,8 +238,6 @@ exports.verifyEmail = async(req, res, next) => {
 //   sendTokenResponse(user, 200, res);
 // });
 
-
-
 // exports.resendToken = async (req, res) => {
 //   try {
 //     const { firstname, lastname, email, password, user_type, agree_terms } =
@@ -295,8 +279,6 @@ exports.verifyEmail = async(req, res, next) => {
 //   }
 // };
 
-
-
 // you disappointed me this evening , i was expecting you to say hey i'm busy just like the last time i called,
 
 // How are you doing, about day.
@@ -307,20 +289,12 @@ exports.verifyEmail = async(req, res, next) => {
 
 // I just want to check on you, since you have chosen to act as if you didnt see the message I sent since morning.
 
-
-
-
-
-
-
-
-
 exports.resendVerifyToken = async (req, res, next) => {
-  const user  = req.user 
-// console.log(user)
+  const user = req.user;
+  // console.log(user)
 
   if (user.isActive === true) {
-    return res.status(400).json({message:"Email is already verified"});
+    return res.status(400).json({ message: "Email is already verified" });
   }
 
   const genToken = crypto.randomBytes(20).toString("hex");
@@ -334,25 +308,21 @@ exports.resendVerifyToken = async (req, res, next) => {
   user.regToken = regToken;
   user.regTokenExpire = regTokenExpire;
 
-  const Url = `${req.protocol}://${req.get(
-    "host"
-  )}/verify/${genToken}`;
+  const Url = `${req.protocol}://${req.get("host")}/verify/${genToken}`;
 
   await user.save({ validateBeforeSave: true });
 
-   await new Email({
-     email: user.email,
-     Url,
-     firstname: user.firstname,
-   }).sendWelcomeMessage();
+  await new Email({
+    email: user.email,
+    Url,
+    firstname: user.firstname,
+  }).sendWelcomeMessage();
 
   res.status(201).json({
     success: true,
     message: "Verification email sent to your email successfully",
   });
-}
-
-
+};
 
 //forgot password
 exports.forgotPassword = async (req, res, next) => {
@@ -379,12 +349,12 @@ exports.forgotPassword = async (req, res, next) => {
     "host"
   )}/reset-password/${genForgotPasswordToken}`;
 
-    await new Email({
-      email: user.email,
-      Url,
-      username:user.firstname,
-      copyRightDate,
-    }).sendForgotPasswordMessage();
+  await new Email({
+    email: user.email,
+    Url,
+    username: user.firstname,
+    copyRightDate,
+  }).sendForgotPasswordMessage();
 
   await user.save({ validateBeforeSave: false });
   return res.status(200).json({
@@ -423,72 +393,41 @@ exports.forgotPassword = async (req, res, next) => {
 //reset password
 exports.resetPassword = async (req, res, next) => {
   //get hash token
-    const Token = crypto
-      .createHash("sha256")
-      .update(req.params.genForgotPasswordToken)
-      .digest("hex");
-    console.log(Token);
+  const Token = crypto
+    .createHash("sha256")
+    .update(req.params.genForgotPasswordToken)
+    .digest("hex");
+  console.log(Token);
 
   let user = await User.findOne({
-    resetPasswordToken:Token,
+    resetPasswordToken: Token,
     forgotPasswordTokenExpire: { $gt: Date.now() },
   });
   if (!user) {
     return res.status(400).json({ message: "Invalid or expired link" });
   }
 
-    // if (user.resetPasswordToken === undefined) {
-    //   return res.status(400).json({ message: "Invalid or expired token" });
-    // }
-  
-    let timeDiff = Date.now() - user.forgotPasswordTokenExpire;
+  // if (user.resetPasswordToken === undefined) {
+  //   return res.status(400).json({ message: "Invalid or expired token" });
+  // }
+
+  let timeDiff = Date.now() - user.forgotPasswordTokenExpire;
   const durationMinutes = 15 * 60 * 1000;
   if (timeDiff >= durationMinutes) {
-    return next(
-      res.json({message: "Verification token is expired"})
-    );
+    return next(res.json({ message: "Verification token is expired" }));
   }
 
-
-
-    //set new password
+  //set new password
   try {
-      user.password = req.body.password;
-      user.forgotPasswordTokenExpire = undefined;
-      user.resetPasswordToken = undefined;
-      await user.save();
-      sendTokenResponse(user, 200, res);
+    user.password = req.body.password;
+    user.forgotPasswordTokenExpire = undefined;
+    user.resetPasswordToken = undefined;
+    await user.save();
+    sendTokenResponse(user, 200, res);
   } catch (error) {
-      res.status(400).json({ message: "Invalid or expired link" });
+    res.status(400).json({ message: "Invalid or expired link" });
   }
-
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 exports.logout = (req, res, next) => {
   res.cookie("token", "", {
@@ -524,12 +463,8 @@ const sendTokenResponse = (user, statusCode, res) => {
         lastname: user.lastname,
         email: user.email,
         role: user.role,
-       isActive: user.isActive,
-       createdAt:user.createdAt
+        isActive: user.isActive,
+        createdAt: user.createdAt,
       },
     });
 };
-
-
-
-

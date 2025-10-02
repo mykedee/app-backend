@@ -15,6 +15,7 @@ const propertyRoute = require("./routes/properties");
 const categoryRoute = require("./routes/categories");
 const userRoute = require("./routes/users");
 const messageRoute = require("./routes/messages");
+const walletRoute = require("./routes/wallet");
 const { default: helmet } = require("helmet");
 const { xss } = require("express-xss-sanitizer");
 const errorHandler = require("./middleware/error");
@@ -46,6 +47,7 @@ app.use("/api/v1/", propertyRoute);
 app.use("/api/v1/", categoryRoute);
 app.use("/api/v1/", userRoute);
 app.use("/api/v1/", messageRoute);
+app.use("/api/v1/", walletRoute);
 
 app.use(errorHandler);
 
